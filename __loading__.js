@@ -1,100 +1,86 @@
-pc.script.createLoadingScreen((app) => {
-    const createCss = () => {
-        const css = `
-            body {
-                background-color: #283538;
-            }
+pc.script.createLoadingScreen(function (app) {
+    var createCss = function () {
+        var css = [
+            'body { background-color: #000; margin: 0; padding: 0; overflow: hidden; }',
+            '#splash-wrapper { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: #050505; display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 9999; font-family: "Segoe UI", sans-serif; color: white; }',
+            '#splash-container { width: 280px; text-align: center; display: flex; flex-direction: column; align-items: center; }',
+            
+            // Your Custom Logo (Colored)
+            '#custom-logo { width: 120px; height: 120px; margin-bottom: 20px; border-radius: 50%; }',
+            
+            // PlayCanvas Logo (White text style)
+            '#pc-logo { width: 80px; opacity: 0.4; margin-bottom: 30px; filter: brightness(0) invert(1); }',
+            
+            '#progress-container { width: 100%; height: 2px; background: rgba(255,255,255,0.05); border-radius: 10px; margin-bottom: 12px; position: relative; overflow: hidden; }',
+            '#progress-bar { width: 0%; height: 100%; background: #00ffcc; box-shadow: 0 0 15px rgba(0, 255, 204, 0.6); transition: width 0.2s ease-out; }',
+            '#status-row { display: flex; justify-content: space-between; width: 100%; font-size: 11px; opacity: 0.4; letter-spacing: 2px; text-transform: uppercase; }',
+            '.fade-out { opacity: 0 !important; transition: opacity 0.8s ease-in !important; pointer-events: none !important; }'
+        ].join('\n');
 
-            #application-splash-wrapper {
-                position: absolute;
-                top: 0;
-                left: 0;
-                height: 100%;
-                width: 100%;
-                background-color: #283538;
-            }
-
-            #application-splash {
-                position: absolute;
-                top: calc(50% - 28px);
-                width: 264px;
-                left: calc(50% - 132px);
-            }
-
-            #application-splash img {
-                width: 100%;
-            }
-
-            #progress-bar-container {
-                margin: 20px auto 0 auto;
-                height: 2px;
-                width: 100%;
-                background-color: #1d292c;
-            }
-
-            #progress-bar {
-                width: 0%;
-                height: 100%;
-                background-color: #f60;
-            }
-
-            @media (max-width: 480px) {
-                #application-splash {
-                    width: 170px;
-                    left: calc(50% - 85px);
-                }
-            }
-        `;
-
-        const style = document.createElement('style');
-        style.textContent = css;
+        var style = document.createElement('style');
+        style.type = 'text/css';
+        style.appendChild(document.createTextNode(css));
         document.head.appendChild(style);
     };
 
-    const showSplash = () => {
-        const wrapper = document.createElement('div');
-        wrapper.id = 'application-splash-wrapper';
+    var showSplash = function () {
+        var wrapper = document.createElement('div');
+        wrapper.id = 'splash-wrapper';
         document.body.appendChild(wrapper);
 
-        const splash = document.createElement('div');
-        splash.id = 'application-splash';
-        wrapper.appendChild(splash);
-        splash.style.display = 'none';
-
-        const logo = document.createElement('img');
-        logo.src = `${ASSET_PREFIX}logo.png`;
-        splash.appendChild(logo);
-        logo.onload = () => {
-            splash.style.display = 'block';
-        };
-
-        const container = document.createElement('div');
-        container.id = 'progress-bar-container';
-        splash.appendChild(container);
-
-        const bar = document.createElement('div');
-        bar.id = 'progress-bar';
-        container.appendChild(bar);
+        // Corrected HTML string
+        wrapper.innerHTML = 
+            '<div id="splash-container">' +
+                // 1. Your Custom Logo
+                '<img id="custom-logo" src="https://i.postimg.cc/MHkYLZzN/color-circle-icon-layout.png">' +
+                // 2. PlayCanvas Logo
+                '<img id="pc-logo" src="https://playcanvas.com/static-assets/images/play_text_252_white.png">' +
+                
+                '<div id="progress-container"><div id="progress-bar"></div></div>' +
+                '<div id="status-row">' +
+                    '<span id="asset-count">Initialising...</span>' +
+                    '<span id="percent">0%</span>' +
+                '</div>' +
+            '</div>';
     };
 
-    const setProgress = (value) => {
-        const bar = document.getElementById('progress-bar');
-        if (bar) {
-            value = Math.min(1, Math.max(0, value));
-            bar.style.width = `${value * 100}%`;
+    var updateUI = function (progressValue) {
+        var bar = document.getElementById('progress-bar');
+        var percentText = document.getElementById('percent');
+        var assetText = document.getElementById('asset-count');
+
+        if (progressValue !== undefined) {
+            var p = Math.floor(progressValue * 100);
+            if (bar) bar.style.width = p + '%';
+            if (percentText) percentText.textContent = p + '%';
+        }
+
+        if (assetText && app.assets && typeof app.assets.list === 'function') {
+            var assets = app.assets.list(); 
+            var preloads = assets.filter(function(a) { return a.preload; });
+            var loaded = preloads.filter(function(a) { return a.loaded; }).length;
+            var total = preloads.length;
+
+            if (total > 0) {
+                assetText.textContent = 'Files: ' + loaded + ' / ' + total;
+            }
         }
     };
 
-    const hideSplash = () => {
-        document.getElementById('application-splash-wrapper').remove();
+    var hideSplash = function () {
+        var wrapper = document.getElementById('splash-wrapper');
+        if (wrapper) {
+            wrapper.classList.add('fade-out');
+            setTimeout(function () { wrapper.remove(); }, 800);
+        }
     };
 
     createCss();
     showSplash();
 
-    app.on('preload:end', () => {
-        app.off('preload:progress');
-    });
-    app.on('preload:progress', setProgress);
-    app.on('start', hideSplash);
+    app.on('preload:progress', function (value) { updateUI(value); });
+    app.assets.on('load', function () { updateUI(); });
+    app.assets.on('add', function () { updateUI(); });
+    app.on('preload:end', function () { app.off('preload:progress'); });
+    app.on('start', function () { hideSplash(); });
 });
